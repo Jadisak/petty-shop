@@ -364,7 +364,35 @@ class SimpleQRCode {
     }
   }
 
-  toSVG(size = 240, margin = 4, fgColor = "#1B4931", bgColor = "#FFFFFF") {
+  toSVG(size = 240, margin = 4, fgColor = "#000000", bgColor = "#FFFFFF") {
+    // If standard qrcode generator is available, use it for 100% compliant QR
+    if (typeof qrcode === "function") {
+      try {
+        const qr = qrcode(0, 'M');
+        qr.addData(this.text);
+        qr.make();
+        const count = qr.getModuleCount();
+        const total = count + margin * 2;
+        const modSize = size / total;
+        let rects = "";
+        for (let r = 0; r < count; r++) {
+          for (let c = 0; c < count; c++) {
+            if (qr.isDark(r, c)) {
+              const x = (c + margin) * modSize;
+              const y = (r + margin) * modSize;
+              rects += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${(modSize + 0.1).toFixed(2)}" height="${(modSize + 0.1).toFixed(2)}" fill="${fgColor}"/>`;
+            }
+          }
+        }
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
+          <rect width="100%" height="100%" fill="${bgColor}" rx="8"/>
+          ${rects}
+        </svg>`;
+      } catch (e) {
+        console.warn("Fallback to SimpleQRCode:", e);
+      }
+    }
+
     const totalSize = this.moduleCount + margin * 2;
     const moduleSize = size / totalSize;
     let rects = "";
@@ -380,7 +408,7 @@ class SimpleQRCode {
     }
 
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
-      <rect width="100%" height="100%" fill="${bgColor}" rx="12"/>
+      <rect width="100%" height="100%" fill="${bgColor}" rx="8"/>
       ${rects}
     </svg>`;
   }
@@ -392,8 +420,41 @@ class SimpleQRCode {
 function renderPromptPayQR(containerElement, target, amount = null, size = 260) {
   if (!containerElement) return;
   const payload = PromptPayQR.generatePayload(target, amount);
-  const qr = new SimpleQRCode(payload, 'M');
-  const svg = qr.toSVG(size, 4, "#1E4D38", "#FFFFFF");
+  let svg = "";
+
+  if (typeof qrcode === "function") {
+    try {
+      const qr = qrcode(0, 'M');
+      qr.addData(payload);
+      qr.make();
+      const count = qr.getModuleCount();
+      const margin = 2;
+      const total = count + margin * 2;
+      const modSize = size / total;
+      let rects = "";
+      for (let r = 0; r < count; r++) {
+        for (let c = 0; c < count; c++) {
+          if (qr.isDark(r, c)) {
+            const x = (c + margin) * modSize;
+            const y = (r + margin) * modSize;
+            rects += `<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${(modSize + 0.1).toFixed(2)}" height="${(modSize + 0.1).toFixed(2)}" fill="#000000"/>`;
+          }
+        }
+      }
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" shape-rendering="crispEdges">
+        <rect width="100%" height="100%" fill="#FFFFFF" rx="8"/>
+        ${rects}
+      </svg>`;
+    } catch (err) {
+      console.warn("Standard qrcode failed, fallback:", err);
+      const qr = new SimpleQRCode(payload, 'M');
+      svg = qr.toSVG(size, 2, "#000000", "#FFFFFF");
+    }
+  } else {
+    const qr = new SimpleQRCode(payload, 'M');
+    svg = qr.toSVG(size, 2, "#000000", "#FFFFFF");
+  }
+
   containerElement.innerHTML = svg;
   return payload;
 }
