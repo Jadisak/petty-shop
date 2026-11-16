@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PETTY SHOP — ผู้ช่วยหน้าร้าน ให้เจ๊ขายคล่องเหมือนเดิม</title>
+  <meta name="description" content="ระบบผู้ช่วยการขายของเจ๊บนแท็บเล็ต ช่วยจำรายการ รวมยอด แสดง QR และเตรียมชุดส่งบัญชีสิ้นวัน">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐾</text></svg>">
+</head>
+<body>
+
+  <!-- ================= App Header ================= -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <div class="brand-logo-icon">🐾</div>
+      <div class="brand-text">
+        <h1>PETTY SHOP</h1>
+        <p>ผู้ช่วยหน้าร้าน ให้เจ๊ขายคล่องเหมือนเดิม</p>
+      </div>
+    </div>
+
+    <!-- 3 Core Navigation Tabs -->
+    <nav class="main-nav" aria-label="เมนูหลัก">
+      <button type="button" class="nav-tab-btn active" data-view="pos-view" id="nav-pos">
+        <span>🛒</span> ช่วยขาย
+      </button>
+      <button type="button" class="nav-tab-btn" data-view="journal-view" id="nav-journal">
+        <span>📋</span> รายการวันนี้
+        <span class="badge-pill" id="header-today-bill-count">0</span>
+      </button>
+      <button type="button" class="nav-tab-btn" data-view="eod-view" id="nav-eod">
+        <span>📦</span> ปิดวัน / ส่งบัญชี
+        <span class="badge-pill" id="header-eod-status-dot" style="display:none; background-color:#1E8E4F;">✓</span>
+      </button>
+    </nav>
+
+    <!-- Secondary Utilities -->
+    <div class="header-actions">
+      <button type="button" class="btn-parked-drawer" id="btn-toggle-parked" title="ดูออเดอร์ที่พักไว้">
+        <span>⏸️ บิลที่พัก</span>
+        <span class="count-bubble" id="parked-count-badge">0</span>
+      </button>
+      <button type="button" class="btn-catalog-settings" id="btn-open-settings" title="สมุดสินค้าและการตั้งค่า">
+        <span>⚙️</span> สมุดสินค้า
+      </button>
+      <button type="button" class="btn-catalog-settings" id="btn-toggle-sound" title="เปิด/ปิดเสียงกด">
+        <span id="sound-icon">🔊</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= Main App Container ================= -->
+  <main class="app-container">
+
+    <!-- ================= VIEW 1: ช่วยขาย (Sales Assistant Workspace) ================= -->
+    <section class="view-section active" id="pos-view">
+      <div class="pos-workspace">
+
+        <!-- Left Side: Catalog, Search, Quick Filters & Cheat Sheets -->
+        <div class="pos-left-panel">
+          <!-- Search & Filter Bar -->
+          <div class="pos-search-header">
+            <div class="search-box-row">
+              <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="pos-search-input" class="search-input"
+                       placeholder="ค้นหาชื่อ / ชื่อเรียก เช่น ไก่ทูน่า, คานิว่า, แมวเด็ก, ไม่เค็ม, รอยัล..."
+                       autocomplete="off">
+                <button type="button" class="search-clear-btn" id="btn-clear-search" style="display:none;">✕</button>
+              </div>
+              <button type="button" class="btn-compare-trigger" id="btn-open-compare">
+                <span>⚖️</span> เปิดเทียบ (<span id="compare-count">0</span>)
+              </button>
+            </div>
+
+            <!-- Category Pills Bar -->
+            <div class="category-pills-bar" id="category-pills-bar">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Product Catalog Grid -->
+          <div class="pos-catalog-grid-wrapper">
+            <div class="pos-catalog-grid" id="pos-product-grid">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Side: ออเดอร์ที่กำลังคุย (Conversational Order Board) -->
+        <div class="pos-right-panel">
+          <!-- Order Board Header -->
+          <div class="order-board-header">
+            <div class="order-title-row">
+              <div class="order-title-left">
+                <h2>ออเดอร์ที่กำลังคุย</h2>
+                <span class="order-status-badge" id="order-active-badge">กำลังจัด</span>
+              </div>
+              <div class="order-header-actions">
+                <button type="button" class="btn-order-action" id="btn-park-current-order" title="พักบิลนี้ไว้คุยกับลูกค้าคนอื่นก่อน">
+                  <span>⏸️</span> พักบิลนี้
+                </button>
+                <button type="button" class="btn-order-action danger" id="btn-clear-order" title="ล้างรายการเริ่มใหม่">
+                  <span>🗑️</span> ล้าง
+                </button>
+              </div>
+            </div>
+
+            <!-- Order Nickname & Presets -->
+            <div class="order-nickname-container">
+              <div class="nickname-input-wrapper">
+                <span class="nickname-label">ชื่อเรียกบิล:</span>
+                <input type="text" id="order-nickname-input" class="nickname-input" placeholder="เช่น พี่เสื้อฟ้า, คุณป้าประจำ..." value="พี่เสื้อฟ้า">
+              </div>
+              <div class="nickname-presets-row">
+                <button type="button" class="nickname-chip" data-name="พี่เสื้อฟ้า">พี่เสื้อฟ้า</button>
+                <button type="button" class="nickname-chip" data-name="คุณป้าประจำ">คุณป้าประจำ</button>
+                <button type="button" class="nickname-chip" data-name="ลูกค้ามอเตอร์ไซค์">ลูกค้ามอเตอร์ไซค์</button>
+                <button type="button" class="nickname-chip" data-name="น้องเสื้อชมพู">น้องเสื้อชมพู</button>
+                <button type="button" class="nickname-chip" data-name="ลูกค้าหน้าร้าน">ลูกค้าหน้าร้าน</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Order Items List -->
+          <div class="order-items-scroll" id="order-items-container">
+            <!-- Dynamically populated or empty state -->
+            <div class="empty-order-state" id="empty-order-placeholder">
+              <div class="empty-order-icon">🛒</div>
+              <div class="empty-order-title">ยังไม่มีรายการสินค้า</div>
+              <div class="empty-order-desc">แตะเลือกสินค้าจากด้านซ้ายระหว่างคุยกับลูกค้าได้เลย</div>
+            </div>
+          </div>
+
+          <!-- Order Board Footer & Total -->
+          <div class="order-board-footer">
+            <input type="text" id="order-notes-input" class="order-note-input" placeholder="หมายเหตุออเดอร์ (เช่น ถุงแยก, แถมช้อน, ส่งรถ)">
+
+            <div class="summary-rows">
+              <div class="summary-row">
+                <span>จำนวนรายการ</span>
+                <span id="order-summary-item-count">0 ชิ้น</span>
+              </div>
+              <div class="summary-row discount" id="order-discount-row" style="display: none;">
+                <span>ส่วนลดพิเศษ</span>
+                <span id="order-summary-discount">-0 บาท</span>
+              </div>
+              <div class="summary-row grand-total">
+                <span>ยอดรวม</span>
+                <span class="total-amount" id="order-summary-grand-total">0 <span>บาท</span></span>
+              </div>
+            </div>
+
+            <!-- Big tactile CTA button -->
+            <button type="button" class="btn-checkout-primary" id="btn-proceed-checkout" disabled>
+              <span>🧮</span> ดูยอด / รับเงิน
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= VIEW 2: รายการวันนี้ (Today's Journal & Slips) ================= -->
+    <section class="view-section" id="journal-view">
+      <div class="journal-workspace">
+        <div class="journal-header">
+          <div class="journal-title-group">
+            <h2>รายการขายวันนี้</h2>
+            <p id="journal-date-display">วันที่ --/--/----</p>
+          </div>
+        </div>
+
+        <!-- Metric Summary Cards -->
+        <div class="metrics-row">
+          <div class="metric-card">
+            <div class="metric-icon-box total">💰</div>
+            <div class="metric-data">
+              <h4>ยอดขายรวมวันนี้</h4>
+              <div class="metric-value" id="metric-total-sales">0 ฿</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon-box cash">💵</div>
+            <div class="metric-data">
+              <h4>รับเงินสด</h4>
+              <div class="metric-value" id="metric-cash-sales">0 ฿</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon-box qr">📲</div>
+            <div class="metric-data">
+              <h4>สแกน QR / โอน</h4>
+              <div class="metric-value" id="metric-qr-sales">0 ฿</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon-box count">🧾</div>
+            <div class="metric-data">
+              <h4>จำนวนบิล</h4>
+              <div class="metric-value" id="metric-bill-count">0 บิล</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bills List Table Card -->
+        <div class="journal-table-card">
+          <div class="table-toolbar">
+            <div class="table-filter-group">
+              <button type="button" class="btn-filter-pill active" data-filter="ALL">ทั้งหมด</button>
+              <button type="button" class="btn-filter-pill" data-filter="COMPLETED">รับเงินแล้ว</button>
+              <button type="button" class="btn-filter-pill" data-filter="CANCELLED">ยกเลิก/คืนเงิน</button>
+            </div>
+            <div style="font-size:0.85rem; color:var(--color-text-muted);">
+              * แตะที่บิลเพื่อดูรายละเอียด หรือแนบหลักฐานสลิปเงินโอน
+            </div>
+          </div>
+
+          <table class="bills-table">
+            <thead>
+              <tr>
+                <th>เวลา</th>
+                <th>เลขที่บิล</th>
+                <th>ชื่อออเดอร์</th>
+                <th>วิธีชำระ</th>
+                <th>รายการสินค้า</th>
+                <th>ยอดรวม</th>
+                <th>หลักฐาน</th>
+                <th>สถานะ</th>
+                <th>การจัดการ</th>
+              </tr>
+            </thead>
+            <tbody id="bills-table-body">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 3: ปิดวัน / ส่งบัญชี (End of Day & Accounting Pack) ================= -->
+    <section class="view-section" id="eod-view">
+      <div class="eod-workspace">
+        <div class="eod-header">
+          <h2>ปิดวัน / ส่งสำนักงานบัญชี</h2>
+          <p style="color:var(--color-text-muted);">กระบวนการสิ้นวันเพื่อตรวจยอด สำรองข้อมูล และส่งออกชุดเอกสารให้สำนักงานบัญชี</p>
+        </div>
+
+        <!-- End of Day Status Banner -->
+        <div class="eod-status-banner" id="eod-status-banner">
+          <div class="eod-status-info">
+            <div class="status-indicator-icon" id="eod-status-icon">⏳</div>
+            <div class="status-text">
+              <h3 id="eod-status-title">ยังไม่ได้ส่งสำนักงานบัญชี</h3>
+              <p id="eod-status-subtitle">ตรวจยอดให้เรียบร้อยก่อนสร้างชุดส่งบัญชี</p>
+            </div>
+          </div>
+          <button type="button" class="btn-download-file" id="btn-mark-sent" style="height:44px; padding:0 20px;">
+            📮 บันทึกว่าส่งบัญชีแล้ว
+          </button>
+        </div>
+
+        <!-- Step 1: ตรวจยอดสรุปวันนี้ -->
+        <div class="eod-step-card">
+          <div class="step-card-title">
+            <span class="step-badge">1</span>
+            <h3>สรุปยอดขายประจำวัน (<span id="eod-summary-date">--</span>)</h3>
+          </div>
+          <div class="metrics-row" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="metric-card">
+              <div class="metric-icon-box total">💰</div>
+              <div class="metric-data">
+                <h4>ยอดขายสุทธิทั้งหมด</h4>
+                <div class="metric-value" id="eod-net-total">0 ฿</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon-box cash">💵</div>
+              <div class="metric-data">
+                <h4>เงินสดในลิ้นชัก (ต้องตรง)</h4>
+                <div class="metric-value" id="eod-cash-total">0 ฿</div>
+              </div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-icon-box qr">📲</div>
+              <div class="metric-data">
+                <h4>เงินเข้าบัญชี (สแกน QR)</h4>
+                <div class="metric-value" id="eod-qr-total">0 ฿</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: เช็กลิสต์ตรวจยอดหน้าร้าน -->
+        <div class="eod-step-card">
+          <div class="step-card-title">
+            <span class="step-badge">2</span>
+            <h3>เช็กลิสต์ความถูกต้องก่อนส่ง</h3>
+          </div>
+          <div class="checklist-group">
+            <label class="checklist-item">
+              <input type="checkbox" id="chk-eod-cash">
+              <div class="checklist-content">
+                <h4>นับเงินสดในเก๊ะตรงกับยอดขายเงินสด</h4>
+                <p>นับเงินเหรียญและธนบัตรจริงเทียบกับยอดระบบ</p>
+              </div>
+            </label>
+            <label class="checklist-item">
+              <input type="checkbox" id="chk-eod-slips">
+              <div class="checklist-content">
+                <h4>ตรวจสอบยอดโอน QR ในแอปธนาคารครบถ้วน</h4>
+                <p>ยอดเงินเข้าบัญชีตรงกับบิลสแกน QR ทุกรายการ</p>
+              </div>
+            </label>
+            <label class="checklist-item">
+              <input type="checkbox" id="chk-eod-backup">
+              <div class="checklist-content">
+                <h4>ดาวน์โหลดไฟล์สำรองข้อมูล (Backup) เก็บไว้</h4>
+                <p>ป้องกันข้อมูลสูญหายจากเบราว์เซอร์หรือเครื่องขัดข้อง</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Step 3: ดาวน์โหลดชุดส่งบัญชี (5 ไฟล์) -->
+        <div class="eod-step-card">
+          <div class="step-card-title">
+            <span class="step-badge">3</span>
+            <h3>ชุดไฟล์ส่งสำนักงานบัญชี</h3>
+          </div>
+          <div class="download-package-grid">
+            <div class="package-file-card">
+              <div class="file-info-group">
+                <span class="file-type-icon">📑</span>
+                <div class="file-details">
+                  <h4>สรุปรายวัน (Daily Report PDF)</h4>
+                  <p>ยอดรวม แยกวิธีรับเงิน และหมายเหตุ (พร้อมพิมพ์/ส่ง)</p>
+                </div>
+              </div>
+              <button type="button" class="btn-download-file" id="btn-print-eod-report">
+                🖨️ เปิดรายงาน / พิมพ์
+              </button>
+            </div>
+
+            <div class="package-file-card">
+              <div class="file-info-group">
+                <span class="file-type-icon">📊</span>
+                <div class="file-details">
+                  <h4>รายการขาย (Bills CSV)</h4>
+                  <p>หนึ่งแถวต่อบิล พร้อมเวลาและวิธีชำระ</p>
+                </div>
+              </div>
+              <button type="button" class="btn-download-file" id="btn-export-bills-csv">
+                📥 ดาวน์โหลด CSV
+              </button>
+            </div>
+
+            <div class="package-file-card">
+              <div class="file-info-group">
+                <span class="file-type-icon">📋</span>
+                <div class="file-details">
+                  <h4>รายละเอียดสินค้า (Items CSV)</h4>
+                  <p>รายการสินค้าแยกชิ้นของแต่ละบิล</p>
+                </div>
+              </div>
+              <button type="button" class="btn-download-file" id="btn-export-items-csv">
+                📥 ดาวน์โหลด CSV
+              </button>
+            </div>
+
+            <div class="package-file-card">
+              <div class="file-info-group">
+                <span class="file-type-icon">💾</span>
+                <div class="file-details">
+                  <h4>ไฟล์สำรองข้อมูล (Backup JSON)</h4>
+                  <p>ข้อมูลดิบสมบูรณ์สำหรับนำกลับเข้าเครื่อง</p>
+                </div>
+              </div>
+              <button type="button" class="btn-download-file" id="btn-download-backup-json">
+                📥 ดาวน์โหลด JSON
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= VIEW 4: สมุดสินค้า & ตั้งค่า (Catalog & Settings Workspace) ================= -->
+    <section class="view-section" id="settings-view">
+      <div class="settings-workspace">
+        <div class="journal-header">
+          <div class="journal-title-group">
+            <h2>สมุดสินค้า & ตั้งค่าระบบ</h2>
+            <p>จัดการข้อมูลสินค้าหน้าร้านและข้อมูลพร้อมเพย์ของร้าน</p>
+          </div>
+          <div>
+            <button type="button" class="btn-table-action" id="btn-close-settings-view">
+              ✕ กลับหน้าขาย
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-nav-tabs">
+          <button type="button" class="settings-tab-btn active" data-subtab="catalog-tab">📚 สมุดสินค้า (Catalog)</button>
+          <button type="button" class="settings-tab-btn" data-subtab="shop-tab">🏪 ข้อมูลร้าน & พร้อมเพย์</button>
+        </div>
+
+        <!-- Subtab 1: สมุดสินค้า -->
+        <div class="subtab-content" id="catalog-tab">
+          <div class="journal-table-card">
+            <div class="table-toolbar">
+              <div style="display:flex; gap:10px; align-items:center;">
+                <input type="text" id="catalog-filter-search" class="form-input" style="width:260px; height:38px;" placeholder="ค้นหาสินค้าในสมุด...">
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn-table-action" id="btn-open-add-product">
+                  ➕ เพิ่มสินค้าใหม่
+                </button>
+                <button type="button" class="btn-table-action" id="btn-export-catalog-csv">
+                  📤 ส่งออก CSV
+                </button>
+                <label class="btn-table-action" style="cursor:pointer; display:inline-flex; align-items:center;">
+                  📥 นำเข้า CSV
+                  <input type="file" id="input-import-catalog-csv" accept=".csv" style="display:none;">
+                </label>
+                <button type="button" class="btn-table-action" id="btn-reset-catalog-default" title="รีเซ็ตสินค้าตัวอย่าง">
+                  🔄 สินค้าตัวอย่าง
+                </button>
+              </div>
+            </div>
+
+            <table class="bills-table">
+              <thead>
+                <tr>
+                  <th>รหัส</th>
+                  <th>ชื่อสินค้า / สูตร</th>
+                  <th>หมวดหมู่</th>
+                  <th>ขนาด/หน่วย</th>
+                  <th>ราคา (฿)</th>
+                  <th>ขายบ่อย 🔥</th>
+                  <th>เจ๊แนะนำ ⭐</th>
+                  <th>สถานะ</th>
+                  <th>จัดการ</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-table-body">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subtab 2: ข้อมูลร้าน & พร้อมเพย์ -->
+        <div class="subtab-content" id="shop-tab" style="display:none;">
+          <div class="eod-step-card" style="max-width:680px;">
+            <h3>ตั้งค่าข้อมูลร้านและระบบรับชำระ</h3>
+            <div class="form-group">
+              <label class="form-label" for="setting-shop-name">ชื่อร้าน</label>
+              <input type="text" id="setting-shop-name" class="form-input" value="PETTY SHOP (ร้านเพ็ทตี้ ช็อป)">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-promptpay-id">เบอร์พร้อมเพย์ / เลขประจำตัวผู้เสียภาษี (สำหรับสร้าง QR)</label>
+              <input type="text" id="setting-promptpay-id" class="form-input" value="0891234567">
+              <small style="color:var(--color-text-muted);">ใส่เบอร์มือถือ 10 หลัก (เช่น 0891234567) หรือเลขบัตร/เลขภาษี 13 หลัก</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-promptpay-name">ชื่อบัญชีพร้อมเพย์ที่แสดงให้ลูกค้าตรวจ</label>
+              <input type="text" id="setting-promptpay-name" class="form-input" value="น.ส. สมศรี ใจดี (เพ็ทตี้ช็อป)">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-receipt-footer">ข้อความท้ายใบเสร็จ</label>
+              <input type="text" id="setting-receipt-footer" class="form-input" value="ขอบคุณที่อุดหนุนค่ะ สัตว์เลี้ยงสุขภาพดี เจ๊ยินดีบริการ!">
+            </div>
+            <div style="display:flex; justify-content:flex-end;">
+              <button type="button" class="btn-checkout-primary" id="btn-save-settings" style="width:200px; height:46px; font-size:1rem;">
+                💾 บันทึกการตั้งค่า
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal 1: รวมยอด & รับเงิน (Customer Presentation & Payment Modal) -->
+  <div class="modal-overlay" id="checkout-modal">
+    <div class="modal-container wide">
+      <div class="modal-header">
+        <h3 id="checkout-modal-title">🧮 หน้ารวมยอด / รับเงิน</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-checkout">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="checkout-view-grid">
+
+          <!-- Left Side: Clean Receipt Itemized List -->
+          <div class="receipt-preview-col">
+            <div class="receipt-title" id="checkout-shop-name">PETTY SHOP</div>
+            <div class="receipt-sub">รายการออเดอร์: <strong id="checkout-nickname-preview">พี่เสื้อฟ้า</strong></div>
+            <div id="checkout-receipt-items">
+              <!-- Item list -->
+            </div>
+            <div style="margin-top:auto; padding-top:12px; border-top:1.5px dashed #C8BFB2;">
+              <div style="display:flex; justify-content:space-between; font-weight:700; font-size:1.15rem; color:var(--color-primary);">
+                <span>ยอดสุทธิ</span>
+                <span id="checkout-receipt-total">0 ฿</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Side: Pay Method Selector, Dynamic QR or Cash Calculator -->
+          <div class="payment-method-col">
+            <!-- Grand Total Banner -->
+            <div class="total-due-banner">
+              <div class="due-label">ยอดที่ต้องชำระ</div>
+              <div class="due-amount" id="checkout-big-total">315.-</div>
+            </div>
+
+            <!-- Pay Method Switcher: QR or Cash -->
+            <div class="pay-method-switcher">
+              <button type="button" class="pay-tab-btn active" data-method="QR" id="tab-pay-qr">
+                📲 สแกน QR
+              </button>
+              <button type="button" class="pay-tab-btn" data-method="CASH" id="tab-pay-cash">
+                💵 เงินสด
+              </button>
+            </div>
+
+            <!-- Option A: QR Code Screen -->
+            <div class="qr-display-box" id="pay-box-qr">
+              <div class="qr-code-holder" id="promptpay-qr-container">
+                <!-- SVG QR rendered here -->
+              </div>
+              <div style="font-size:0.9rem; font-weight:600; color:var(--color-primary);" id="promptpay-account-label">
+                พร้อมเพย์: 089-123-4567 (เพ็ทตี้ช็อป)
+              </div>
+              <div class="qr-warning-banner">
+                ⚠️ แสดง QR ไม่เท่ากับเงินเข้า — ให้เจ๊ตรวจยอดในแอปธนาคารก่อนกดยืนยัน
+              </div>
+            </div>
+
+            <!-- Option B: Cash Calculator Screen -->
+            <div class="cash-calc-box" id="pay-box-cash" style="display:none;">
+              <div class="form-group" style="margin-bottom:8px;">
+                <label class="form-label">เงินที่รับจากลูกค้า (บาท)</label>
+                <input type="number" id="input-cash-received" class="form-input" style="font-size:1.3rem; font-weight:700; height:50px;" placeholder="0">
+              </div>
+
+              <!-- Quick cash preset buttons -->
+              <div class="quick-cash-row">
+                <button type="button" class="btn-quick-cash" id="btn-cash-exact">พอดี</button>
+                <button type="button" class="btn-quick-cash" data-cash="100">100</button>
+                <button type="button" class="btn-quick-cash" data-cash="500">500</button>
+                <button type="button" class="btn-quick-cash" data-cash="1000">1,000</button>
+              </div>
+
+              <div class="cash-change-display">
+                <span class="change-label">เงินทอน</span>
+                <span class="change-amount" id="cash-change-amount">0 ฿</span>
+              </div>
+            </div>
+
+            <!-- Big Confirmation Action -->
+            <button type="button" class="btn-confirm-payment" id="btn-confirm-payment-done">
+              <span>✅</span> เจ๊ยืนยันรับเงินแล้ว (จบการขาย)
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: เปิดเทียบสินค้า 2 รายการ (Compare Products Modal) -->
+  <div class="modal-overlay" id="compare-modal">
+    <div class="modal-container wide">
+      <div class="modal-header">
+        <h3>⚖️ เปิดเทียบสินค้า 2 รายการ (ช่วยเจ๊แนะนำลูกค้า)</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-compare">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="compare-modal-content">
+          <!-- Dynamically populated compare cards -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: พักบิล / สลับบิล (Parked Orders Drawer Modal) -->
+  <div class="modal-overlay" id="parked-orders-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3>⏸️ รายการบิลที่พักไว้ (<span id="parked-modal-count">0</span>)</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-parked">✕</button>
+      </div>
+      <div class="modal-body" id="parked-orders-list-body">
+        <!-- Rendered parked orders -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: รายละเอียดบิล & แนบหลักฐาน (Bill Details & Attach Slip Modal) -->
+  <div class="modal-overlay" id="bill-detail-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="bill-detail-title">🧾 รายละเอียดบิล</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-bill-detail">✕</button>
+      </div>
+      <div class="modal-body" id="bill-detail-content">
+        <!-- Bill detail breakdown and slip attachments -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-order-action danger" id="btn-cancel-this-bill">
+          🚫 ยกเลิกบิล / คืนเงิน
+        </button>
+        <button type="button" class="btn-table-action" id="btn-print-this-bill">
+          🖨️ พิมพ์ใบเสร็จ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 5: ปรับราคา / ลดท้ายรายการ (Discount Modal) -->
+  <div class="modal-overlay" id="discount-modal">
+    <div class="modal-container" style="max-width:440px;">
+      <div class="modal-header">
+        <h3>🏷️ ปรับราคา / ส่วนลดสินค้า</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-discount">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" id="discount-item-name-label">ชื่อสินค้า</label>
+          <div style="font-weight:600; margin-bottom:8px;" id="discount-item-name-display">--</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">จำนวนเงินที่ลด (บาท)</label>
+          <input type="number" id="input-discount-amount" class="form-input" placeholder="เช่น 15">
+        </div>
+        <div class="form-group">
+          <label class="form-label">หมายเหตุการลด (เช่น แถมลูกค้าประจำ, สินค้ามีรอย)</label>
+          <input type="text" id="input-discount-reason" class="form-input" placeholder="แถมลูกค้าประจำ">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-table-action" id="btn-remove-discount">ล้างส่วนลด</button>
+        <button type="button" class="btn-checkout-primary" id="btn-save-discount" style="height:44px; font-size:1rem;">
+          ตกลง
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 6: เพิ่ม/แก้ไขสินค้าในสมุด (Add/Edit Product Modal) -->
+  <div class="modal-overlay" id="product-form-modal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <h3 id="product-form-title">➕ เพิ่มสินค้าในสมุด</h3>
+        <button type="button" class="btn-close-modal" id="btn-close-product-form">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="product-edit-form">
+          <input type="hidden" id="form-product-id">
+          <div style="display:grid; grid-template-columns:1fr 2fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">รหัสสินค้า</label>
+              <input type="text" id="form-product-code" class="form-input" required placeholder="CAT-001">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ชื่อสินค้า</label>
+              <input type="text" id="form-product-name" class="form-input" required placeholder="Kaniva อาหารแมว">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ชื่อเรียก / คำค้นหา (ภาษาที่เจ๊ใช้จริง คั่นด้วยเว้นวรรค)</label>
+            <input type="text" id="form-product-nicknames" class="form-input" placeholder="คานิว่า ไก่ทูน่า ถุงเขียว ไม่เค็ม">
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+            <div class="form-group">
+              <label class="form-label">หมวดหมู่</label>
+              <select id="form-product-category" class="form-select">
+                <option value="อาหารแมว">อาหารแมว</option>
+                <option value="อาหารสุนัข">อาหารสุนัข</option>
+                <option value="อาหารเปียก/ขนม">อาหารเปียก/ขนม</option>
+                <option value="ทรายและของใช้">ทรายและของใช้</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">สูตร/ขนาด</label>
+              <input type="text" id="form-product-formula" class="form-input" placeholder="1.4 กก.">
+            </div>
+            <div class="form-group">
+              <label class="form-label">ราคาขาย (บาท)</label>
+              <input type="number" id="form-product-price" class="form-input" required placeholder="285">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ข้อมูลช่วยแนะนำสั้น ๆ (จุดต่างที่เจ๊ใช้พูดกับลูกค้า)</label>
+            <textarea id="form-product-cheatsheet" class="form-textarea" rows="2" placeholder="โซเดียมต่ำ ไม่เค็ม เม็ดขนาดพอดีคำ น้ำมันปลาแซลมอนบำรุงขน"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">สินค้าแนะนำคู่กัน (เผื่อลูกค้าสนใจ)</label>
+            <input type="text" id="form-product-pairs" class="form-input" placeholder="ขนมแมวเลีย Me-O หรือ อาหารเปียก">
+          </div>
+          <div style="display:flex; gap:20px; margin-top:10px;">
+            <label style="display:flex; align-items:center; gap:6px; font-weight:600; cursor:pointer;">
+              <input type="checkbox" id="form-product-fav" style="width:18px; height:18px;"> ขายบ่อย 🔥
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-weight:600; cursor:pointer;">
+              <input type="checkbox" id="form-product-rec" style="width:18px; height:18px;"> เจ๊แนะนำ ⭐
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-table-action" id="btn-cancel-product-form">ยกเลิก</button>
+        <button type="button" class="btn-checkout-primary" id="btn-save-product-submit" style="height:44px; font-size:1rem;">
+          💾 บันทึกสินค้า
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification element -->
+  <div class="toast-notice" id="app-toast">
+    <span id="toast-icon">✨</span>
+    <span id="toast-message">แจ้งเตือน</span>
+  </div>
+
+  <!-- Hidden Printable Container -->
+  <div id="print-container" style="display:none;"></div>
+
+  <!-- Scripts -->
+  <script src="js/catalog-data.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/promptpay.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

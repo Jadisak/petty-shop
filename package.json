@@ -1,0 +1,19 @@
+{
+  "name": "petty-shop",
+  "version": "1.0.0",
+  "description": "PETTY SHOP — ผู้ช่วยการขายของเจ๊บนแท็บเล็ต",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx -y serve . -l 3000",
+    "dev": "python3 -m http.server 3000"
+  },
+  "keywords": [
+    "pos",
+    "petty-shop",
+    "tablet-pos",
+    "local-first",
+    "accounting"
+  ],
+  "author": "PETTY SHOP",
+  "license": "MIT"
+}
