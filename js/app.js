@@ -95,6 +95,38 @@ class PettyShopApp {
       });
     }
 
+    // Fullscreen toggle in header
+    const btnFullscreen = document.getElementById("btn-toggle-fullscreen");
+    if (btnFullscreen) {
+      btnFullscreen.addEventListener("click", () => {
+        sound.playTap();
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          const el = document.documentElement;
+          if (el.requestFullscreen) {
+            el.requestFullscreen().catch(err => console.warn("Fullscreen request error:", err));
+          } else if (el.webkitRequestFullscreen) {
+            el.webkitRequestFullscreen();
+          }
+        } else {
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(err => console.warn("Exit fullscreen error:", err));
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+        }
+      });
+
+      const updateFsIcon = () => {
+        const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        const iconEl = document.getElementById("fullscreen-icon");
+        if (iconEl) iconEl.textContent = isFs ? "⛷️" : "⛶";
+        btnFullscreen.setAttribute("title", isFs ? "ออกจากโหมดเต็มจอ" : "เปิดโหมดเต็มจอ");
+      };
+
+      document.addEventListener("fullscreenchange", updateFsIcon);
+      document.addEventListener("webkitfullscreenchange", updateFsIcon);
+    }
+
     // Settings view open/close
     const btnOpenSettings = document.getElementById("btn-open-settings");
     if (btnOpenSettings) {
@@ -2044,6 +2076,15 @@ class PettyShopApp {
       toast.classList.remove("show");
     }, 2400);
   }
+}
+
+// Register Service Worker for Offline PWA Support
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => {
+      console.log("Service Worker registration skipped:", err);
+    });
+  });
 }
 
 // Instantiate and start app on DOM ready

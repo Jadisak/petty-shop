@@ -2,9 +2,14 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>PETTY SHOP — ผู้ช่วยหน้าร้าน ให้เจ๊ขายคล่องเหมือนเดิม</title>
   <meta name="description" content="ระบบผู้ช่วยการขายของเจ๊บนแท็บเล็ต ช่วยจำรายการ รวมยอด แสดง QR และเตรียมชุดส่งบัญชีสิ้นวัน">
+  <meta name="theme-color" content="#1E4D38">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐾</text></svg>">
 </head>
@@ -22,15 +27,15 @@
 
     <!-- 3 Core Navigation Tabs -->
     <nav class="main-nav" aria-label="เมนูหลัก">
-      <button type="button" class="nav-tab-btn active" data-view="pos-view" id="nav-pos">
-        <span>🛒</span> ช่วยขาย
+      <button type="button" class="nav-tab-btn active" data-view="pos-view" id="nav-pos" title="ช่วยขายหน้าร้าน">
+        <span>🛒</span> <span class="nav-tab-label">ช่วยขาย</span>
       </button>
-      <button type="button" class="nav-tab-btn" data-view="journal-view" id="nav-journal">
-        <span>📋</span> รายการวันนี้
+      <button type="button" class="nav-tab-btn" data-view="journal-view" id="nav-journal" title="รายการขายวันนี้">
+        <span>📋</span> <span class="nav-tab-label">รายการวันนี้</span>
         <span class="badge-pill" id="header-today-bill-count">0</span>
       </button>
-      <button type="button" class="nav-tab-btn" data-view="eod-view" id="nav-eod">
-        <span>📦</span> ปิดวัน / ส่งบัญชี
+      <button type="button" class="nav-tab-btn" data-view="eod-view" id="nav-eod" title="ปิดวันและส่งบัญชี">
+        <span>📦</span> <span class="nav-tab-label">ปิดวัน / ส่งบัญชี</span>
         <span class="badge-pill" id="header-eod-status-dot" style="display:none; background-color:#1E8E4F;">✓</span>
       </button>
     </nav>
@@ -38,14 +43,17 @@
     <!-- Secondary Utilities -->
     <div class="header-actions">
       <button type="button" class="btn-parked-drawer" id="btn-toggle-parked" title="ดูออเดอร์ที่พักไว้">
-        <span>⏸️ บิลที่พัก</span>
+        <span>⏸️</span> <span class="action-btn-label">บิลที่พัก</span>
         <span class="count-bubble" id="parked-count-badge">0</span>
       </button>
       <button type="button" class="btn-catalog-settings" id="btn-open-settings" title="สมุดสินค้าและการตั้งค่า">
-        <span>⚙️</span> สมุดสินค้า
+        <span>⚙️</span> <span class="action-btn-label">สมุดสินค้า</span>
       </button>
-      <button type="button" class="btn-catalog-settings" id="btn-toggle-sound" title="เปิด/ปิดเสียงกด">
+      <button type="button" class="btn-catalog-settings btn-icon-only" id="btn-toggle-sound" title="เปิด/ปิดเสียงกด">
         <span id="sound-icon">🔊</span>
+      </button>
+      <button type="button" class="btn-catalog-settings btn-icon-only" id="btn-toggle-fullscreen" title="เปิด/ปิดโหมดเต็มจอ">
+        <span id="fullscreen-icon">⛶</span>
       </button>
     </div>
   </header>
@@ -69,8 +77,8 @@
                        autocomplete="off">
                 <button type="button" class="search-clear-btn" id="btn-clear-search" style="display:none;">✕</button>
               </div>
-              <button type="button" class="btn-compare-trigger" id="btn-open-compare">
-                <span>⚖️</span> เปิดเทียบ (<span id="compare-count">0</span>)
+              <button type="button" class="btn-compare-trigger" id="btn-open-compare" title="เปิดหน้าต่างเปรียบเทียบสินค้า">
+                <span>⚖️</span> <span class="compare-btn-label">เปิดเทียบ</span> (<span id="compare-count">0</span>)
               </button>
             </div>
 
