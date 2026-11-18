@@ -2441,21 +2441,41 @@ button, input, select, textarea {
   }
 }
 
-/* Print Styles for Receipts and Reports */
+/* Print Styles for Receipts and Reports
+   ขนาดกระดาษ (@page) ถูกกำหนดจาก JS ตามชนิดงานพิมพ์ (ใบเสร็จ 58/80 มม. หรือ A4) */
+#print-container .receipt-58-80 {
+  font-family: 'Prompt', 'Sarabun', 'Noto Sans Thai', sans-serif;
+  color: #000;
+  line-height: 1.35;
+  margin: 0 auto;
+  padding: 2mm 0;
+}
+#print-container .rc-center { text-align: center; }
+#print-container .rc-shop { font-weight: 700; font-size: 1.25em; }
+#print-container .rc-line { border-top: 1px dashed #000; margin: 5px 0; }
+#print-container .rc-row { display: flex; justify-content: space-between; gap: 6px; }
+#print-container .rc-item { margin-bottom: 4px; }
+#print-container .rc-item-name { word-break: break-word; }
+#print-container .rc-total { font-weight: 700; font-size: 1.15em; }
+#print-container .rc-void { font-weight: 700; margin-top: 4px; }
+#print-container .rc-feed { height: 8mm; }
+
 @media print {
-  body {
+  html, body {
     background: #FFF !important;
     height: auto !important;
     overflow: visible !important;
   }
 
-  .app-header, .pos-workspace, .main-nav, .modal-overlay:not(.print-target) {
+  /* ซ่อนทุกอย่าง แสดงเฉพาะพื้นที่พิมพ์ */
+  body > *:not(#print-container) {
     display: none !important;
   }
 
-  .printable-area {
+  #print-container {
     display: block !important;
     width: 100% !important;
     padding: 0 !important;
+    margin: 0 !important;
   }
 }

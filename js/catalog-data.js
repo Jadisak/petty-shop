@@ -330,7 +330,7 @@ const DEFAULT_PRODUCTS = [
     isFavorite: false,
     isRecommended: true,
     isActive: true,
-    cheatSheet: "เจ๊แนะนำลูกค้าที่บ่นว่าแมวขนร่วง แปรงแล้วกดปุ่มแชะเดียวขนหลุดออกมาเป็นแผ่น ไม่ต้องเสียเวลาแคะ",
+    cheatSheet: "แนะนำสำหรับลูกค้าที่บ่นว่าแมวขนร่วง แปรงแล้วกดปุ่มแชะเดียวขนหลุดออกมาเป็นแผ่น ไม่ต้องเสียเวลาแคะ",
     compareSpecs: {
       ageRange: "สุนัขและแมวทุกสายพันธุ์ ขนสั้น/ขนยาว",
       benefit: "เก็บขนตายใต้ชั้นขนได้ลึก ลดขนปลิวว่อนในบ้าน",
@@ -346,7 +346,7 @@ const DEFAULT_PRODUCTS = [
 const CATEGORIES = [
   { id: "all", label: "ทั้งหมด", icon: "✨" },
   { id: "fav", label: "ขายบ่อย 🔥", icon: "🔥", filter: p => p.isFavorite },
-  { id: "rec", label: "เจ๊แนะนำ ⭐", icon: "⭐", filter: p => p.isRecommended },
+  { id: "rec", label: "แนะนำ ⭐", icon: "⭐", filter: p => p.isRecommended },
   { id: "cat-dry", label: "อาหารแมว 🐱", icon: "🐱", filter: p => p.category === "อาหารแมว" },
   { id: "dog-dry", label: "อาหารสุนัข 🐶", icon: "🐶", filter: p => p.category === "อาหารสุนัข" },
   { id: "wet-snack", label: "อาหารเปียก/ขนม 🥫", icon: "🥫", filter: p => p.category === "อาหารเปียก/ขนม" },

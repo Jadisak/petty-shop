@@ -1,7 +1,27 @@
 /**
  * PETTY SHOP - Core Application Logic
- * ผู้ช่วยการขายของเจ๊บนแท็บเล็ต
+ * ผู้ช่วยขายหน้าร้านบนแท็บเล็ต
  */
+
+/**
+ * Escape ข้อความจากผู้ใช้ก่อนใส่ใน innerHTML (กัน XSS / ป้องกันตัวอักษรพิเศษทำหน้าพัง)
+ */
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/** วันที่ตามเวลาท้องถิ่น (YYYY-MM-DD) — ไม่ใช้ UTC เพื่อไม่ให้บิลหลังเที่ยงคืนไทยเพี้ยนวัน */
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 class PettyShopApp {
   constructor() {
@@ -12,7 +32,7 @@ class PettyShopApp {
 
     // Active order state
     this.activeOrder = {
-      nickname: "พี่เสื้อฟ้า",
+      nickname: "ลูกค้า 1",
       items: [], // { product, qty, isPacked, discount, discountReason }
       notes: ""
     };
@@ -23,8 +43,17 @@ class PettyShopApp {
     // Settings
     this.settings = {};
 
-    // Today's Date String YYYY-MM-DD
-    this.todayStr = new Date().toISOString().slice(0, 10);
+    // เลขลำดับลูกค้าของวันนี้ (ใช้ตั้งชื่อบิลอัตโนมัติ)
+    this.customerSeq = 1;
+  }
+
+  // วันที่วันนี้ตามเวลาท้องถิ่น YYYY-MM-DD (คำนวณใหม่ทุกครั้ง ไม่ค้างค่าถ้าเปิดแอปข้ามเที่ยงคืน)
+  get todayStr() {
+    return localDateStr();
+  }
+
+  defaultNickname() {
+    return `ลูกค้า ${this.customerSeq}`;
   }
 
   async init() {
@@ -34,6 +63,21 @@ class PettyShopApp {
     // 2. Load settings & products
     await this.loadSettings();
     await this.loadProducts();
+
+    // ตั้งชื่อบิลเริ่มต้นเป็นลำดับต่อจากบิลที่ขาย/พักไว้แล้ววันนี้
+    try {
+      const doneToday = await db.getBillsByDate(this.todayStr);
+      const parkedNow = await db.getParkedOrders();
+      this.customerSeq = doneToday.length + parkedNow.length + 1;
+    } catch (e) { /* ใช้ค่าเริ่มต้น */ }
+    this.activeOrder.nickname = this.defaultNickname();
+    const nickInit = document.getElementById("order-nickname-input");
+    if (nickInit) nickInit.value = this.activeOrder.nickname;
+
+    // ขอให้เบราว์เซอร์เก็บข้อมูลถาวร (ลดโอกาสโดนล้างอัตโนมัติ)
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(() => {});
+    }
 
     // 3. Setup UI components & events
     this.setupNavigation();
@@ -53,6 +97,10 @@ class PettyShopApp {
     // 5. Initial Render
     this.renderCatalog();
     this.renderOrderBoard();
+
+    if (!this.settings.promptPayId) {
+      setTimeout(() => this.showToast("ยังไม่ได้ตั้งค่าพร้อมเพย์ ไปที่ ตั้งค่า > ข้อมูลร้าน ก่อนรับชำระด้วย QR", "⚠️"), 800);
+    }
   }
 
   // ================= Loaders =================
@@ -65,6 +113,23 @@ class PettyShopApp {
       const soundIcon = document.getElementById("sound-icon");
       if (soundIcon) soundIcon.textContent = sound.enabled ? "🔊" : "🔇";
     }
+    this.populateSettingsForm();
+  }
+
+  populateSettingsForm() {
+    const map = {
+      "setting-shop-name": this.settings.shopName,
+      "setting-shop-phone": this.settings.shopPhone,
+      "setting-tax-id": this.settings.taxId,
+      "setting-promptpay-id": this.settings.promptPayId,
+      "setting-promptpay-name": this.settings.promptPayName,
+      "setting-receipt-footer": this.settings.receiptFooter,
+      "setting-paper-width": this.settings.paperWidth || "58"
+    };
+    Object.entries(map).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val ?? "";
+    });
   }
 
   async loadProducts() {
@@ -180,7 +245,7 @@ class PettyShopApp {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = `cat-pill-btn ${cat.id === this.activeCategory ? "active" : ""}`;
-      btn.innerHTML = `${cat.label}`;
+      btn.innerHTML = `${esc(cat.label)}`;
       btn.addEventListener("click", () => {
         this.activeCategory = cat.id;
         document.querySelectorAll(".cat-pill-btn").forEach(b => b.classList.remove("active"));
@@ -260,36 +325,36 @@ class PettyShopApp {
         <div class="card-top-row">
           <div class="card-badges">
             ${prod.isFavorite ? `<span class="card-badge fav">🔥 ขายบ่อย</span>` : ""}
-            ${prod.isRecommended ? `<span class="card-badge rec">⭐ เจ๊แนะนำ</span>` : ""}
-            <span class="card-badge category">${prod.category}</span>
+            ${prod.isRecommended ? `<span class="card-badge rec">⭐ แนะนำ</span>` : ""}
+            <span class="card-badge category">${esc(prod.category)}</span>
           </div>
-          <button type="button" class="btn-card-compare ${isComparing ? "in-compare" : ""}" data-id="${prod.id}" title="เปิดเทียบกับสินค้าอื่น">
+          <button type="button" class="btn-card-compare ${isComparing ? "in-compare" : ""}" data-id="${esc(prod.id)}" title="เปิดเทียบกับสินค้าอื่น">
             <span>⚖️</span> ${isComparing ? "เทียบอยู่" : "เทียบ"}
           </button>
         </div>
 
-        <h3 class="card-product-title">${prod.name}</h3>
-        <div class="card-formula-size">${prod.formula || ""} ${prod.size ? `• ${prod.size}` : ""}</div>
+        <h3 class="card-product-title">${esc(prod.name)}</h3>
+        <div class="card-formula-size">${esc(prod.formula || "")} ${prod.size ? `• ${esc(prod.size)}` : ""}</div>
 
         ${prod.cheatSheet ? `
           <div class="card-cheatsheet">
             <span class="cheatsheet-icon">💡</span>
-            <div>${prod.cheatSheet}</div>
+            <div>${esc(prod.cheatSheet)}</div>
           </div>
         ` : ""}
 
         ${prod.pairSuggestion ? `
           <div class="card-pair-tag">
-            <strong>เผื่อลูกค้าสนใจ:</strong> ${prod.pairSuggestion}
+            <strong>เผื่อลูกค้าสนใจ:</strong> ${esc(prod.pairSuggestion)}
           </div>
         ` : ""}
 
         <div class="card-bottom-row">
           <div class="card-price-display">
-            <span class="card-price-label">ราคาต่อ${prod.unit || "ชิ้น"}</span>
+            <span class="card-price-label">ราคาต่อ${esc(prod.unit || "ชิ้น")}</span>
             <div class="card-price-amount">${prod.price.toLocaleString()} <span>บาท</span></div>
           </div>
-          <button type="button" class="btn-card-add" data-id="${prod.id}">
+          <button type="button" class="btn-card-add" data-id="${esc(prod.id)}">
             <span>+</span> เพิ่มในบิล
           </button>
         </div>
@@ -453,18 +518,18 @@ class PettyShopApp {
       row.innerHTML = `
         <div class="item-main-info">
           <div class="item-name-group">
-            <div class="item-name">${item.product.name}</div>
-            <div class="item-formula">${item.product.formula || ""} ${item.product.size || ""}</div>
+            <div class="item-name">${esc(item.product.name)}</div>
+            <div class="item-formula">${esc(item.product.formula || "")} ${esc(item.product.size || "")}</div>
           </div>
           <div class="item-price-col">
             <div class="item-line-total">${lineTotal.toLocaleString()} ฿</div>
-            <div class="item-unit-price">@${item.product.price} / ${item.product.unit || "ชิ้น"}</div>
+            <div class="item-unit-price">@${item.product.price} / ${esc(item.product.unit || "ชิ้น")}</div>
           </div>
         </div>
 
         ${item.discount > 0 ? `
           <div class="item-discount-row">
-            <span>🏷️ ลด ${item.discount} บ. (${item.discountReason || "ส่วนลดพิเศษ"})</span>
+            <span>🏷️ ลด ${item.discount} บ. (${esc(item.discountReason || "ส่วนลดพิเศษ")})</span>
             <button type="button" class="btn-edit-discount" data-index="${index}">แก้ส่วนลด</button>
           </div>
         ` : ""}
@@ -557,12 +622,12 @@ class PettyShopApp {
 
   resetActiveOrder() {
     this.activeOrder = {
-      nickname: "พี่เสื้อฟ้า",
+      nickname: this.defaultNickname(),
       items: [],
       notes: ""
     };
     const inputNick = document.getElementById("order-nickname-input");
-    if (inputNick) inputNick.value = "พี่เสื้อฟ้า";
+    if (inputNick) inputNick.value = this.activeOrder.nickname;
     const inputNotes = document.getElementById("order-notes-input");
     if (inputNotes) inputNotes.value = "";
     this.renderOrderBoard();
@@ -579,6 +644,7 @@ class PettyShopApp {
     };
 
     await db.saveParkedOrder(orderToPark);
+    this.customerSeq++;
     this.resetActiveOrder();
     await this.updateParkedCountBadge();
     this.showToast(`พักบิล "${orderToPark.nickname}" ไว้แล้ว`);
@@ -617,7 +683,7 @@ class PettyShopApp {
         card.innerHTML = `
           <div>
             <h4 style="font-family:var(--font-heading); font-size:1.05rem; color:var(--color-primary);">
-              ${parked.nickname}
+              ${esc(parked.nickname)}
             </h4>
             <div style="font-size:0.82rem; color:var(--color-text-muted);">
               ${parked.items.length} รายการ • รวม ${totalAmount.toLocaleString()} ฿
@@ -627,10 +693,10 @@ class PettyShopApp {
             </div>
           </div>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="btn-checkout-primary btn-resume-parked" data-id="${parked.id}" style="height:38px; padding:0 14px; font-size:0.88rem;">
+            <button type="button" class="btn-checkout-primary btn-resume-parked" data-id="${esc(parked.id)}" style="height:38px; padding:0 14px; font-size:0.88rem;">
               ดึงกลับมาทำต่อ
             </button>
-            <button type="button" class="btn-order-action danger btn-del-parked" data-id="${parked.id}">
+            <button type="button" class="btn-order-action danger btn-del-parked" data-id="${esc(parked.id)}">
               ลบ
             </button>
           </div>
@@ -724,39 +790,39 @@ class PettyShopApp {
         ${items.map(p => `
           <div class="compare-card">
             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-              <span class="card-badge category">${p.category}</span>
+              <span class="card-badge category">${esc(p.category)}</span>
               <div style="font-family:var(--font-heading); font-size:1.4rem; font-weight:700; color:var(--color-primary);">
                 ${p.price} ฿
               </div>
             </div>
 
             <h3 style="font-family:var(--font-heading); font-size:1.15rem; font-weight:700; color:var(--color-text-main); line-height:1.3;">
-              ${p.name}
+              ${esc(p.name)}
             </h3>
 
             <div class="compare-field">
               <span class="field-label">สูตรและขนาด</span>
-              <span class="field-value">${p.formula || "-"} (${p.size || "-"})</span>
+              <span class="field-value">${esc(p.formula || "-")} (${esc(p.size || "-")})</span>
             </div>
 
             <div class="compare-field">
               <span class="field-label">ช่วงวัยและสายพันธุ์ที่เหมาะ</span>
-              <span class="field-value">${p.compareSpecs?.ageRange || "สุนัข/แมวทั่วไป"}</span>
+              <span class="field-value">${esc(p.compareSpecs?.ageRange || "สุนัข/แมวทั่วไป")}</span>
             </div>
 
             <div class="compare-field">
               <span class="field-label">ความคุ้มค่าเฉลี่ย</span>
-              <span class="field-value">${p.compareSpecs?.pricePerUnit || "-"}</span>
+              <span class="field-value">${esc(p.compareSpecs?.pricePerUnit || "-")}</span>
             </div>
 
             <div class="compare-field">
-              <span class="field-label">จุดเด่นที่เจ๊ควรพูดกับลูกค้า</span>
+              <span class="field-label">จุดเด่นสำหรับแนะนำลูกค้า</span>
               <div style="background-color:#FDF9EE; border-left:3px solid #E69D35; padding:8px 10px; border-radius:0 8px 8px 0; font-size:0.85rem; color:#784812; line-height:1.4;">
-                ${p.cheatSheet || p.compareSpecs?.benefit || "-"}
+                ${esc(p.cheatSheet || p.compareSpecs?.benefit || "-")}
               </div>
             </div>
 
-            <button type="button" class="btn-checkout-primary btn-add-from-compare" data-id="${p.id}" style="margin-top:auto; height:44px; font-size:0.95rem;">
+            <button type="button" class="btn-checkout-primary btn-add-from-compare" data-id="${esc(p.id)}" style="margin-top:auto; height:44px; font-size:0.95rem;">
               + เพิ่มตัวนี้เข้ารายการ
             </button>
           </div>
@@ -847,7 +913,7 @@ class PettyShopApp {
       row.className = "receipt-item-row";
       row.innerHTML = `
         <div>
-          <div>${it.product.name}</div>
+          <div>${esc(it.product.name)}</div>
           <small style="color:var(--color-text-muted);">${it.qty} x ${it.product.price} บ. ${it.discount > 0 ? `(ลด ${it.discount} บ.)` : ""}</small>
         </div>
         <div style="font-weight:600;">${lineFinal.toLocaleString()} บ.</div>
@@ -866,15 +932,28 @@ class PettyShopApp {
 
     // Setup QR with dynamic PromptPay
     this.selectedPayMethod = "QR";
-    const promptPayId = this.settings.promptPayId || "0891234567";
-    const promptPayName = this.settings.promptPayName || "เพ็ทตี้ช็อป";
+    const promptPayId = (this.settings.promptPayId || "").trim();
+    const promptPayName = (this.settings.promptPayName || "").trim();
     const qrContainer = document.getElementById("promptpay-qr-container");
-
-    renderPromptPayQR(qrContainer, promptPayId, grandTotal, 240);
-
     const accountLabel = document.getElementById("promptpay-account-label");
+
+    let qrOk = false;
+    if (promptPayId) {
+      try {
+        renderPromptPayQR(qrContainer, promptPayId, grandTotal, 240);
+        qrOk = true;
+      } catch (err) {
+        console.warn("PromptPay QR error:", err);
+      }
+    }
+    if (!qrOk && qrContainer) {
+      qrContainer.innerHTML = `<div style="padding:32px 16px; text-align:center; color:var(--color-text-muted); font-size:0.95rem;">
+        ยังไม่ได้ตั้งค่าพร้อมเพย์ (หรือเลขไม่ถูกต้อง)<br>ไปที่ <strong>ตั้งค่า &gt; ข้อมูลร้าน</strong> หรือรับเป็นเงินสดแทน</div>`;
+    }
     if (accountLabel) {
-      accountLabel.textContent = `พร้อมเพย์: ${promptPayId} (${promptPayName})`;
+      accountLabel.textContent = qrOk
+        ? `พร้อมเพย์: ${promptPayId}${promptPayName ? ` (${promptPayName})` : ""}`
+        : "พร้อมเพย์";
     }
 
     // Reset cash calc
@@ -1040,7 +1119,7 @@ class PettyShopApp {
       hasSlip: false,
       status: "COMPLETED",
       createdAt: new Date().toISOString(),
-      date: new Date().toISOString().slice(0, 10)
+      date: localDateStr()
     };
 
     const savedBill = await db.saveBill(billRecord);
@@ -1050,6 +1129,7 @@ class PettyShopApp {
     if (modal) modal.classList.remove("active");
 
     // Reset active order
+    this.customerSeq++;
     this.resetActiveOrder();
 
     // Update badges
@@ -1151,8 +1231,8 @@ class PettyShopApp {
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${timeStr} น.</td>
-        <td><strong>${bill.id}</strong></td>
-        <td>${bill.orderNickname || "-"}</td>
+        <td><strong>${esc(bill.id)}</strong></td>
+        <td>${esc(bill.orderNickname || "-")}</td>
         <td>
           <span class="badge-method ${bill.paymentMethod === "CASH" ? "cash" : "qr"}">
             ${bill.paymentMethod === "CASH" ? "💵 เงินสด" : "📲 QR โอน"}
@@ -1161,7 +1241,7 @@ class PettyShopApp {
         <td>${bill.items.length} ชนิด (${itemCount} ชิ้น)</td>
         <td><strong>${bill.totalAmount.toLocaleString()} ฿</strong></td>
         <td>
-          <span id="slip-status-${bill.id}">
+          <span id="slip-status-${esc(bill.id)}">
             ${bill.hasSlip ? "📎 มีสลิป" : "<span style='color:var(--color-text-light);'>-</span>"}
           </span>
         </td>
@@ -1171,7 +1251,7 @@ class PettyShopApp {
           </span>
         </td>
         <td>
-          <button type="button" class="btn-table-action btn-view-bill" data-id="${bill.id}">
+          <button type="button" class="btn-table-action btn-view-bill" data-id="${esc(bill.id)}">
             ดู / แนบสลิป
           </button>
         </td>
@@ -1214,7 +1294,7 @@ class PettyShopApp {
             ${bill.status === "COMPLETED" ? "รับเงินเรียบร้อย" : "ยกเลิก/คืนเงิน"}
           </strong>
         </div>
-        ${bill.notes ? `<div style="margin-top:6px; font-size:0.85rem; color:var(--color-text-muted);">หมายเหตุ: ${bill.notes}</div>` : ""}
+        ${bill.notes ? `<div style="margin-top:6px; font-size:0.85rem; color:var(--color-text-muted);">หมายเหตุ: ${esc(bill.notes)}</div>` : ""}
       </div>
 
       <h4 style="font-family:var(--font-heading); margin-bottom:10px;">รายการสินค้าในบิล:</h4>
@@ -1222,8 +1302,8 @@ class PettyShopApp {
         ${bill.items.map(it => `
           <div style="display:flex; justify-content:space-between; padding:8px 12px; background-color:#FFF; border:1px solid var(--color-border); border-radius:var(--radius-sm);">
             <div>
-              <div style="font-weight:600;">${it.name}</div>
-              <small style="color:var(--color-text-muted);">${it.qty} ${it.unit} x ${it.price} บ. ${it.discount > 0 ? `(ลด ${it.discount} บ. : ${it.discountReason})` : ""}</small>
+              <div style="font-weight:600;">${esc(it.name)}</div>
+              <small style="color:var(--color-text-muted);">${it.qty} ${esc(it.unit)} x ${it.price} บ. ${it.discount > 0 ? `(ลด ${it.discount} บ. : ${esc(it.discountReason)})` : ""}</small>
             </div>
             <div style="font-weight:700; color:var(--color-primary);">${it.lineTotal.toLocaleString()} ฿</div>
           </div>
@@ -1250,8 +1330,8 @@ class PettyShopApp {
             <div style="font-size:0.85rem; color:var(--color-text-light);">ยังไม่มีไฟล์แนบสำหรับบิลนี้</div>
           ` : attachments.map(att => `
             <div style="position:relative; width:100px; height:100px; border:1px solid var(--color-border); border-radius:var(--radius-sm); overflow:hidden;">
-              <img src="${att.dataUrl}" style="width:100%; height:100%; object-fit:cover;" alt="slip">
-              <button type="button" class="btn-del-slip" data-id="${att.id}" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer;">✕</button>
+              <img src="${esc(att.dataUrl)}" style="width:100%; height:100%; object-fit:cover;" alt="slip">
+              <button type="button" class="btn-del-slip" data-id="${esc(att.id)}" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); color:#fff; border:none; border-radius:50%; width:22px; height:22px; cursor:pointer;">✕</button>
             </div>
           `).join("")}
         </div>
@@ -1322,7 +1402,7 @@ class PettyShopApp {
     const btnPrint = document.getElementById("btn-print-this-bill");
     if (btnPrint) {
       btnPrint.onclick = () => {
-        this.printThermalReceipt(bill);
+        this.showReceiptImage(bill);
       };
     }
 
@@ -1550,55 +1630,228 @@ class PettyShopApp {
 
   // ================= Print Thermal & A4 Daily Report =================
 
-  printThermalReceipt(bill) {
+  // ================= ใบเสร็จแบบภาพ PNG =================
+
+  // วาดใบเสร็จลง canvas (กว้าง 58 มม. = 384px, 80 มม. = 576px ที่ 203dpi) แล้วคืนค่าเป็น canvas
+  async renderReceiptCanvas(bill) {
+    const is80 = this.settings.paperWidth === "80";
+    const W = is80 ? 576 : 384;
+    const PAD = 14;
+    const SCALE = 2; // วาดละเอียดขึ้น 2 เท่า ให้ภาพคมทั้งบนจอและตอนพิมพ์
+    const FONT = "'Prompt','Sarabun','Noto Sans Thai',sans-serif";
+    const base = is80 ? 22 : 19;
+    const money = (n) => Number(n || 0).toLocaleString("th-TH");
+    const created = new Date(bill.createdAt);
+    const shopName = this.settings.shopName || "PETTY SHOP";
+    const footer = this.settings.receiptFooter || "ขอบคุณที่อุดหนุนค่ะ";
+
+    try { await document.fonts.ready; } catch (e) { /* ใช้ฟอนต์สำรอง */ }
+
+    const draw = (ctx) => {
+      let y = PAD;
+      const font = (size, weight = 400) => { ctx.font = `${weight} ${size}px ${FONT}`; };
+      const lh = (size) => Math.round(size * 1.45);
+      const center = (text, size, weight = 400) => {
+        font(size, weight); ctx.textAlign = "center";
+        wrap(text, W - PAD * 2).forEach(line => { y += lh(size); ctx.fillText(line, W / 2, y - 5); });
+      };
+      const left = (text, size = base, weight = 400) => {
+        font(size, weight); ctx.textAlign = "left";
+        wrap(text, W - PAD * 2).forEach(line => { y += lh(size); ctx.fillText(line, PAD, y - 5); });
+      };
+      const row = (l, r, size = base, weight = 400) => {
+        font(size, weight); y += lh(size);
+        ctx.textAlign = "left"; ctx.fillText(l, PAD, y - 5);
+        ctx.textAlign = "right"; ctx.fillText(r, W - PAD, y - 5);
+      };
+      const dash = () => {
+        y += 8; ctx.save(); ctx.setLineDash([5, 4]); ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(PAD, y); ctx.lineTo(W - PAD, y); ctx.stroke(); ctx.restore(); y += 6;
+      };
+      function wrap(text, maxW) {
+        // ตัดบรรทัดตามความกว้าง (ภาษาไทยไม่มีเว้นวรรค จึงตัดทีละตัวอักษร)
+        const out = []; let cur = "";
+        for (const ch of String(text)) {
+          if (ctx.measureText(cur + ch).width > maxW && cur) { out.push(cur); cur = ch; } else { cur += ch; }
+        }
+        if (cur) out.push(cur);
+        return out.length ? out : [""];
+      }
+
+      center(shopName, base + 6, 700);
+      if (this.settings.shopPhone) center(`โทร. ${this.settings.shopPhone}`, base - 3);
+      if (this.settings.taxId) center(`เลขประจำตัวผู้เสียภาษี ${this.settings.taxId}`, base - 4);
+      dash();
+      left(`เลขที่บิล: ${bill.id}`, base - 2);
+      left(`วันที่: ${created.toLocaleDateString("th-TH")} ${created.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}`, base - 2);
+      left(`ลูกค้า: ${bill.orderNickname || "ลูกค้าหน้าร้าน"}`, base - 2);
+      dash();
+      (bill.items || []).forEach(it => {
+        left(it.name, base, 500);
+        row(`  ${it.qty} x ${money(it.price)}${it.discount > 0 ? ` (ลด ${money(it.discount)})` : ""}`, money(it.lineTotal), base - 2);
+        y += 4;
+      });
+      dash();
+      if (bill.discount > 0) row("ส่วนลดรวม", `-${money(bill.discount)}`);
+      row("ยอดรวม", `${money(bill.totalAmount)} บาท`, base + 5, 700);
+      if (bill.paymentMethod === "CASH") {
+        row("รับเงินสด", money(bill.cashReceived), base - 2);
+        row("เงินทอน", money(bill.changeAmount), base - 2);
+      } else {
+        row("ชำระโดย", "โอน / สแกน QR", base - 2);
+      }
+      if (bill.status && bill.status !== "COMPLETED") { y += 6; center("*** บิลนี้ถูกยกเลิก ***", base, 700); }
+      dash();
+      center(footer, base - 2);
+      y += PAD + 18;
+      return y;
+    };
+
+    // รอบที่ 1 วัดความสูง, รอบที่ 2 วาดจริง
+    const probe = document.createElement("canvas");
+    probe.width = W * SCALE; probe.height = 10;
+    const pctx = probe.getContext("2d"); pctx.scale(SCALE, SCALE);
+    const H = Math.ceil(draw(pctx));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = W * SCALE; canvas.height = H * SCALE;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(SCALE, SCALE);
+    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = "#000000"; ctx.strokeStyle = "#000000";
+    draw(ctx);
+    return canvas;
+  }
+
+  async showReceiptImage(bill) {
+    const canvas = await this.renderReceiptCanvas(bill);
+    const dataUrl = canvas.toDataURL("image/png");
+    const fileName = `receipt_${bill.id}.png`;
+
+    let overlay = document.getElementById("receipt-image-modal");
+    if (overlay) overlay.remove();
+    overlay = document.createElement("div");
+    overlay.id = "receipt-image-modal";
+    overlay.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;";
+    overlay.innerHTML = `
+      <div style="background:#FFF; border-radius:16px; width:min(460px,100%); max-height:92vh; display:flex; flex-direction:column; overflow:hidden;">
+        <div style="padding:12px 16px; font-weight:700; border-bottom:1px solid #E5DDD0;">🧾 ใบเสร็จ ${esc(bill.id)}</div>
+        <div style="flex:1; overflow:auto; background:#F5EFE6; padding:14px; text-align:center;">
+          <img id="receipt-image-preview" alt="ใบเสร็จ" src="${dataUrl}" style="max-width:100%; box-shadow:0 2px 10px rgba(0,0,0,0.18); background:#FFF;">
+        </div>
+        <div style="display:flex; gap:8px; padding:12px 16px; border-top:1px solid #E5DDD0; flex-wrap:wrap;">
+          <button type="button" class="btn-checkout-primary" id="btn-receipt-save" style="flex:1; min-width:120px; height:44px;">💾 บันทึกรูป PNG</button>
+          <button type="button" class="btn-order-action" id="btn-receipt-print" style="flex:1; min-width:100px; height:44px;">🖨️ พิมพ์</button>
+          <button type="button" class="btn-order-action" id="btn-receipt-close" style="height:44px;">ปิด</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector("#btn-receipt-close").addEventListener("click", close);
+
+    overlay.querySelector("#btn-receipt-save").addEventListener("click", async () => {
+      sound.playTap();
+      // มือถือ/แท็บเล็ตที่รองรับ จะเปิดเมนูแชร์ (LINE, AirDrop ฯลฯ) ได้เลย
+      try {
+        const blob = await new Promise(res => canvas.toBlob(res, "image/png"));
+        const file = new File([blob], fileName, { type: "image/png" });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: `ใบเสร็จ ${bill.id}` });
+          return;
+        }
+      } catch (e) { if (e && e.name === "AbortError") return; }
+      const link = document.createElement("a");
+      link.href = dataUrl; link.download = fileName;
+      document.body.appendChild(link); link.click(); link.remove();
+    });
+
+    overlay.querySelector("#btn-receipt-print").addEventListener("click", () => {
+      sound.playTap();
+      const paper = this.settings.paperWidth === "80" ? 80 : 58;
+      this._printHtml(
+        `<img src="${dataUrl}" style="display:block; width:${paper === 80 ? 72 : 48}mm; margin:0 auto;">`,
+        `@page { size: ${paper}mm auto; margin: 0; }`
+      );
+    });
+  }
+
+  // พิมพ์ผ่านกล่องพิมพ์ของเบราว์เซอร์ โดยกำหนดขนาดกระดาษ (@page) ให้ตรงกับงานพิมพ์
+  _printHtml(html, pageCss) {
     const printArea = document.getElementById("print-container");
     if (!printArea) return;
+    let pageStyle = document.getElementById("print-page-style");
+    if (!pageStyle) {
+      pageStyle = document.createElement("style");
+      pageStyle.id = "print-page-style";
+      document.head.appendChild(pageStyle);
+    }
+    pageStyle.textContent = pageCss;
+    printArea.innerHTML = html;
 
-    printArea.innerHTML = `
-      <div style="font-family:'Prompt', sans-serif; width:300px; margin:0 auto; padding:10px; font-size:12px; color:#000;">
-        <div style="text-align:center; margin-bottom:8px;">
-          <h2 style="font-size:16px; margin:0;">${this.settings.shopName || "PETTY SHOP"}</h2>
-          <div>โทร. ${this.settings.shopPhone || "089-123-4567"}</div>
-          <div>--------------------------------</div>
-        </div>
-        <div>เลขที่บิล: ${bill.id}</div>
-        <div>วันที่: ${new Date(bill.createdAt).toLocaleDateString("th-TH")} ${new Date(bill.createdAt).toLocaleTimeString("th-TH")}</div>
-        <div>ลูกค้า: ${bill.orderNickname || "ลูกค้าหน้าร้าน"}</div>
-        <div>--------------------------------</div>
-        <table style="width:100%; border-collapse:collapse; margin:6px 0;">
-          ${bill.items.map(it => `
-            <tr>
-              <td>${it.name} x${it.qty}</td>
-              <td style="text-align:right;">${it.lineTotal} บ.</td>
-            </tr>
-          `).join("")}
-        </table>
-        <div>--------------------------------</div>
-        ${bill.discount > 0 ? `<div style="display:flex; justify-content:space-between;"><span>ส่วนลด:</span><span>-${bill.discount} บ.</span></div>` : ""}
-        <div style="display:flex; justify-content:space-between; font-weight:bold; font-size:14px; margin-top:4px;">
-          <span>ยอดสุทธิ:</span>
-          <span>${bill.totalAmount} บาท</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-top:2px;">
-          <span>วิธีชำระ:</span>
-          <span>${bill.paymentMethod === "CASH" ? "เงินสด" : "สแกน QR"}</span>
-        </div>
-        ${bill.paymentMethod === "CASH" ? `
-          <div style="display:flex; justify-content:space-between;"><span>รับเงิน:</span><span>${bill.cashReceived} บ.</span></div>
-          <div style="display:flex; justify-content:space-between;"><span>เงินทอน:</span><span>${bill.changeAmount} บ.</span></div>
-        ` : ""}
-        <div style="text-align:center; margin-top:12px;">
-          <div>${this.settings.receiptFooter || "ขอบคุณที่อุดหนุนค่ะ"}</div>
-        </div>
-      </div>
-    `;
-
+    const cleanup = () => {
+      printArea.innerHTML = "";
+      pageStyle.textContent = "";
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
     window.print();
+  }
+
+  printThermalReceipt(bill) {
+    const paper = this.settings.paperWidth === "80" ? 80 : 58;
+    const contentMm = paper === 80 ? 72 : 48; // พื้นที่พิมพ์จริงน้อยกว่าความกว้างม้วน
+    const fontPx = paper === 80 ? 13 : 11;
+    const money = (n) => Number(n || 0).toLocaleString("th-TH");
+    const created = new Date(bill.createdAt);
+    const shopName = this.settings.shopName || "PETTY SHOP";
+    const phone = this.settings.shopPhone;
+    const taxId = this.settings.taxId;
+    const footer = this.settings.receiptFooter || "ขอบคุณที่อุดหนุนค่ะ";
+
+    const itemsHtml = (bill.items || []).map(it => `
+      <div class="rc-item">
+        <div class="rc-item-name">${esc(it.name)}</div>
+        <div class="rc-row">
+          <span>${it.qty} x ${money(it.price)}${it.discount > 0 ? ` (ลด ${money(it.discount)})` : ""}</span>
+          <span>${money(it.lineTotal)}</span>
+        </div>
+      </div>`).join("");
+
+    const payRows = bill.paymentMethod === "CASH"
+      ? `<div class="rc-row"><span>รับเงินสด</span><span>${money(bill.cashReceived)}</span></div>
+         <div class="rc-row"><span>เงินทอน</span><span>${money(bill.changeAmount)}</span></div>`
+      : `<div class="rc-row"><span>ชำระโดย</span><span>โอน/สแกน QR</span></div>`;
+
+    const html = `
+      <div class="receipt-58-80" style="width:${contentMm}mm; font-size:${fontPx}px;">
+        <div class="rc-center rc-shop">${esc(shopName)}</div>
+        ${phone ? `<div class="rc-center">โทร. ${esc(phone)}</div>` : ""}
+        ${taxId ? `<div class="rc-center">เลขประจำตัวผู้เสียภาษี ${esc(taxId)}</div>` : ""}
+        <div class="rc-line"></div>
+        <div>เลขที่บิล: ${esc(bill.id)}</div>
+        <div>วันที่: ${created.toLocaleDateString("th-TH")} ${created.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })}</div>
+        <div>ลูกค้า: ${esc(bill.orderNickname || "ลูกค้าหน้าร้าน")}</div>
+        <div class="rc-line"></div>
+        ${itemsHtml}
+        <div class="rc-line"></div>
+        ${bill.discount > 0 ? `<div class="rc-row"><span>ส่วนลดรวม</span><span>-${money(bill.discount)}</span></div>` : ""}
+        <div class="rc-row rc-total"><span>ยอดรวม</span><span>${money(bill.totalAmount)} บาท</span></div>
+        ${payRows}
+        ${bill.status && bill.status !== "COMPLETED" ? `<div class="rc-center rc-void">*** บิลนี้ถูกยกเลิก ***</div>` : ""}
+        <div class="rc-line"></div>
+        <div class="rc-center">${esc(footer)}</div>
+        <div class="rc-feed"></div>
+      </div>`;
+
+    const pageCss = `@page { size: ${paper}mm auto; margin: 0; }`;
+    this._printHtml(html, pageCss);
   }
 
   async printDailyReport() {
     const bills = await db.getBillsByDate(this.todayStr);
-    const shopName = this.settings.shopName || "PETTY SHOP (ร้านเพ็ทตี้ ช็อป)";
+    const shopName = this.settings.shopName || "PETTY SHOP";
     let totalSales = 0;
     let cashSales = 0;
     let qrSales = 0;
@@ -1614,14 +1867,11 @@ class PettyShopApp {
       }
     });
 
-    const printArea = document.getElementById("print-container");
-    if (!printArea) return;
-
-    printArea.innerHTML = `
+    const html = `
       <div style="font-family:'Prompt', sans-serif; max-width:800px; margin:20px auto; padding:20px; color:#222;">
         <div style="border-bottom:2px solid #1E4D38; padding-bottom:12px; margin-bottom:16px;">
           <h2 style="color:#1E4D38; margin:0 0 4px 0;">ใบสรุปยอดขายประจำวัน (ส่งสำนักงานบัญชี)</h2>
-          <div style="font-size:14px;"><strong>ชื่อสถานประกอบการ:</strong> ${shopName}</div>
+          <div style="font-size:14px;"><strong>ชื่อสถานประกอบการ:</strong> ${esc(shopName)}</div>
           <div style="font-size:14px;"><strong>ประจำวันที่:</strong> ${new Date().toLocaleDateString("th-TH", { year: "numeric", month: "long", day: "numeric" })}</div>
         </div>
 
@@ -1670,8 +1920,8 @@ class PettyShopApp {
             ${bills.map(b => `
               <tr>
                 <td style="border:1px solid #CCC; padding:6px; text-align:center;">${new Date(b.createdAt).toLocaleTimeString("th-TH")}</td>
-                <td style="border:1px solid #CCC; padding:6px; text-align:center;">${b.id}</td>
-                <td style="border:1px solid #CCC; padding:6px;">${b.orderNickname || "-"}</td>
+                <td style="border:1px solid #CCC; padding:6px; text-align:center;">${esc(b.id)}</td>
+                <td style="border:1px solid #CCC; padding:6px;">${esc(b.orderNickname || "-")}</td>
                 <td style="border:1px solid #CCC; padding:6px; text-align:center;">${b.paymentMethod === "CASH" ? "เงินสด" : "QR"}</td>
                 <td style="border:1px solid #CCC; padding:6px; text-align:right; font-weight:bold;">${b.totalAmount.toLocaleString()} ฿</td>
                 <td style="border:1px solid #CCC; padding:6px; text-align:center;">${b.status === "COMPLETED" ? "ปกติ" : "ยกเลิก"}</td>
@@ -1693,7 +1943,7 @@ class PettyShopApp {
       </div>
     `;
 
-    window.print();
+    this._printHtml(html, "@page { size: A4; margin: 12mm; }");
   }
 
   // ================= VIEW 4: Catalog & Settings =================
@@ -1717,15 +1967,31 @@ class PettyShopApp {
     const btnSaveShop = document.getElementById("btn-save-settings");
     if (btnSaveShop) {
       btnSaveShop.addEventListener("click", async () => {
-        const name = document.getElementById("setting-shop-name")?.value.trim();
-        const ppId = document.getElementById("setting-promptpay-id")?.value.trim();
-        const ppName = document.getElementById("setting-promptpay-name")?.value.trim();
-        const footer = document.getElementById("setting-receipt-footer")?.value.trim();
+        const val = (id) => document.getElementById(id)?.value.trim() ?? "";
+        const name = val("setting-shop-name");
+        const phone = val("setting-shop-phone");
+        const taxId = val("setting-tax-id").replace(/[\s-]/g, "");
+        const ppId = val("setting-promptpay-id").replace(/[\s-]/g, "");
+        const ppName = val("setting-promptpay-name");
+        const footer = val("setting-receipt-footer");
+        const paper = document.getElementById("setting-paper-width")?.value === "80" ? "80" : "58";
 
-        if (name) await db.setSetting("shopName", name);
-        if (ppId) await db.setSetting("promptPayId", ppId);
-        if (ppName) await db.setSetting("promptPayName", ppName);
-        if (footer) await db.setSetting("receiptFooter", footer);
+        if (ppId && !/^\d{10}$|^\d{13}$/.test(ppId)) {
+          this.showToast("เลขพร้อมเพย์ต้องเป็นตัวเลข 10 หลัก (เบอร์มือถือ) หรือ 13 หลัก", "⚠️");
+          return;
+        }
+        if (taxId && !/^\d{13}$/.test(taxId)) {
+          this.showToast("เลขประจำตัวผู้เสียภาษีต้องเป็นตัวเลข 13 หลัก", "⚠️");
+          return;
+        }
+
+        await db.setSetting("shopName", name || "PETTY SHOP");
+        await db.setSetting("shopPhone", phone);
+        await db.setSetting("taxId", taxId);
+        await db.setSetting("promptPayId", ppId);
+        await db.setSetting("promptPayName", ppName);
+        await db.setSetting("receiptFooter", footer);
+        await db.setSetting("paperWidth", paper);
 
         await this.loadSettings();
         sound.playSuccess();
@@ -1815,31 +2081,31 @@ class PettyShopApp {
     list.forEach(p => {
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td><strong>${p.code}</strong></td>
+        <td><strong>${esc(p.code)}</strong></td>
         <td>
-          <div style="font-weight:600;">${p.name}</div>
-          <small style="color:var(--color-text-muted);">${p.formula || ""} ${p.nicknames ? `• [${p.nicknames}]` : ""}</small>
+          <div style="font-weight:600;">${esc(p.name)}</div>
+          <small style="color:var(--color-text-muted);">${esc(p.formula || "")} ${p.nicknames ? `• [${esc(p.nicknames)}]` : ""}</small>
         </td>
-        <td>${p.category}</td>
-        <td>${p.size || "-"} / ${p.unit || "ชิ้น"}</td>
+        <td>${esc(p.category)}</td>
+        <td>${esc(p.size || "-")} / ${esc(p.unit || "ชิ้น")}</td>
         <td>
-          <input type="number" class="form-input inline-price-input" data-id="${p.id}" value="${p.price}" style="width:90px; height:32px; padding:2px 8px; font-weight:700;">
-        </td>
-        <td>
-          <input type="checkbox" class="chk-toggle-fav" data-id="${p.id}" ${p.isFavorite ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--color-accent);">
+          <input type="number" class="form-input inline-price-input" data-id="${esc(p.id)}" value="${p.price}" style="width:90px; height:32px; padding:2px 8px; font-weight:700;">
         </td>
         <td>
-          <input type="checkbox" class="chk-toggle-rec" data-id="${p.id}" ${p.isRecommended ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--color-primary);">
+          <input type="checkbox" class="chk-toggle-fav" data-id="${esc(p.id)}" ${p.isFavorite ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--color-accent);">
         </td>
         <td>
-          <button type="button" class="btn-table-action btn-toggle-active" data-id="${p.id}" style="padding:2px 8px; font-size:0.75rem;">
+          <input type="checkbox" class="chk-toggle-rec" data-id="${esc(p.id)}" ${p.isRecommended ? "checked" : ""} style="width:18px; height:18px; accent-color:var(--color-primary);">
+        </td>
+        <td>
+          <button type="button" class="btn-table-action btn-toggle-active" data-id="${esc(p.id)}" style="padding:2px 8px; font-size:0.75rem;">
             ${p.isActive !== false ? "🟢 แสดง" : "⚪ ซ่อน"}
           </button>
         </td>
         <td>
           <div style="display:flex; gap:4px;">
-            <button type="button" class="btn-table-action btn-edit-p" data-id="${p.id}">✏️</button>
-            <button type="button" class="btn-order-action danger btn-del-p" data-id="${p.id}">🗑️</button>
+            <button type="button" class="btn-table-action btn-edit-p" data-id="${esc(p.id)}">✏️</button>
+            <button type="button" class="btn-order-action danger btn-del-p" data-id="${esc(p.id)}">🗑️</button>
           </div>
         </td>
       `;
@@ -1982,7 +2248,7 @@ class PettyShopApp {
       "หน่วย",
       "ราคาขาย",
       "ขายบ่อย",
-      "เจ๊แนะนำ",
+      "แนะนำ",
       "ข้อมูลแนะนำสั้นๆ",
       "สินค้าคู่กัน"
     ];

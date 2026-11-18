@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>PETTY SHOP — ผู้ช่วยหน้าร้าน ให้เจ๊ขายคล่องเหมือนเดิม</title>
-  <meta name="description" content="ระบบผู้ช่วยการขายของเจ๊บนแท็บเล็ต ช่วยจำรายการ รวมยอด แสดง QR และเตรียมชุดส่งบัญชีสิ้นวัน">
+  <title>PETTY SHOP — ผู้ช่วยหน้าร้าน ขายคล่อง จบบิลไว</title>
+  <meta name="description" content="ระบบผู้ช่วยขายหน้าร้านบนแท็บเล็ต ช่วยจำรายการ รวมยอด แสดง QR และเตรียมชุดส่งบัญชีสิ้นวัน">
   <meta name="theme-color" content="#1E4D38">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐾</text></svg>">
 </head>
@@ -21,7 +22,7 @@
       <div class="brand-logo-icon">🐾</div>
       <div class="brand-text">
         <h1>PETTY SHOP</h1>
-        <p>ผู้ช่วยหน้าร้าน ให้เจ๊ขายคล่องเหมือนเดิม</p>
+        <p>ผู้ช่วยหน้าร้าน ขายคล่อง จบบิลไว</p>
       </div>
     </div>
 
@@ -119,14 +120,13 @@
             <div class="order-nickname-container">
               <div class="nickname-input-wrapper">
                 <span class="nickname-label">ชื่อเรียกบิล:</span>
-                <input type="text" id="order-nickname-input" class="nickname-input" placeholder="เช่น พี่เสื้อฟ้า, คุณป้าประจำ..." value="พี่เสื้อฟ้า">
+                <input type="text" id="order-nickname-input" class="nickname-input" placeholder="เช่น ลูกค้า 1, คุณสมชาย..." value="ลูกค้า 1">
               </div>
               <div class="nickname-presets-row">
-                <button type="button" class="nickname-chip" data-name="พี่เสื้อฟ้า">พี่เสื้อฟ้า</button>
-                <button type="button" class="nickname-chip" data-name="คุณป้าประจำ">คุณป้าประจำ</button>
-                <button type="button" class="nickname-chip" data-name="ลูกค้ามอเตอร์ไซค์">ลูกค้ามอเตอร์ไซค์</button>
-                <button type="button" class="nickname-chip" data-name="น้องเสื้อชมพู">น้องเสื้อชมพู</button>
                 <button type="button" class="nickname-chip" data-name="ลูกค้าหน้าร้าน">ลูกค้าหน้าร้าน</button>
+                <button type="button" class="nickname-chip" data-name="ลูกค้าประจำ">ลูกค้าประจำ</button>
+                <button type="button" class="nickname-chip" data-name="สั่งทางแชต">สั่งทางแชต</button>
+                <button type="button" class="nickname-chip" data-name="รอรับสินค้า">รอรับสินค้า</button>
               </div>
             </div>
           </div>
@@ -447,7 +447,7 @@
                   <th>ขนาด/หน่วย</th>
                   <th>ราคา (฿)</th>
                   <th>ขายบ่อย 🔥</th>
-                  <th>เจ๊แนะนำ ⭐</th>
+                  <th>แนะนำ ⭐</th>
                   <th>สถานะ</th>
                   <th>จัดการ</th>
                 </tr>
@@ -465,20 +465,35 @@
             <h3>ตั้งค่าข้อมูลร้านและระบบรับชำระ</h3>
             <div class="form-group">
               <label class="form-label" for="setting-shop-name">ชื่อร้าน</label>
-              <input type="text" id="setting-shop-name" class="form-input" value="PETTY SHOP (ร้านเพ็ทตี้ ช็อป)">
+              <input type="text" id="setting-shop-name" class="form-input" placeholder="เช่น PETTY SHOP">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-shop-phone">เบอร์โทรร้าน (แสดงบนใบเสร็จ)</label>
+              <input type="tel" id="setting-shop-phone" class="form-input" placeholder="เช่น 02-123-4567">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-tax-id">เลขประจำตัวผู้เสียภาษี (ถ้ามี)</label>
+              <input type="text" id="setting-tax-id" class="form-input" inputmode="numeric" maxlength="13" placeholder="13 หลัก">
             </div>
             <div class="form-group">
               <label class="form-label" for="setting-promptpay-id">เบอร์พร้อมเพย์ / เลขประจำตัวผู้เสียภาษี (สำหรับสร้าง QR)</label>
-              <input type="text" id="setting-promptpay-id" class="form-input" value="0891234567">
-              <small style="color:var(--color-text-muted);">ใส่เบอร์มือถือ 10 หลัก (เช่น 0891234567) หรือเลขบัตร/เลขภาษี 13 หลัก</small>
+              <input type="text" id="setting-promptpay-id" class="form-input" inputmode="numeric" placeholder="เบอร์มือถือ 10 หลัก หรือเลข 13 หลัก">
+              <small style="color:var(--color-text-muted);">ใส่เบอร์มือถือ 10 หลัก หรือเลขบัตรประชาชน/เลขภาษี 13 หลัก ที่ผูกกับพร้อมเพย์ของร้าน</small>
             </div>
             <div class="form-group">
               <label class="form-label" for="setting-promptpay-name">ชื่อบัญชีพร้อมเพย์ที่แสดงให้ลูกค้าตรวจ</label>
-              <input type="text" id="setting-promptpay-name" class="form-input" value="น.ส. สมศรี ใจดี (เพ็ทตี้ช็อป)">
+              <input type="text" id="setting-promptpay-name" class="form-input" placeholder="ชื่อบัญชีตามที่แอปธนาคารแสดง">
             </div>
             <div class="form-group">
               <label class="form-label" for="setting-receipt-footer">ข้อความท้ายใบเสร็จ</label>
-              <input type="text" id="setting-receipt-footer" class="form-input" value="ขอบคุณที่อุดหนุนค่ะ สัตว์เลี้ยงสุขภาพดี เจ๊ยินดีบริการ!">
+              <input type="text" id="setting-receipt-footer" class="form-input" placeholder="เช่น ขอบคุณที่อุดหนุนค่ะ ยินดีให้บริการเสมอ">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="setting-paper-width">ขนาดกระดาษเครื่องพิมพ์ความร้อน</label>
+              <select id="setting-paper-width" class="form-input">
+                <option value="58">58 มม. (ม้วนเล็ก)</option>
+                <option value="80">80 มม. (ม้วนใหญ่)</option>
+              </select>
             </div>
             <div style="display:flex; justify-content:flex-end;">
               <button type="button" class="btn-checkout-primary" id="btn-save-settings" style="width:200px; height:46px; font-size:1rem;">
@@ -508,7 +523,7 @@
           <!-- Left Side: Clean Receipt Itemized List -->
           <div class="receipt-preview-col">
             <div class="receipt-title" id="checkout-shop-name">PETTY SHOP</div>
-            <div class="receipt-sub">รายการออเดอร์: <strong id="checkout-nickname-preview">พี่เสื้อฟ้า</strong></div>
+            <div class="receipt-sub">รายการออเดอร์: <strong id="checkout-nickname-preview">ลูกค้าหน้าร้าน</strong></div>
             <div id="checkout-receipt-items">
               <!-- Item list -->
             </div>
@@ -544,10 +559,10 @@
                 <!-- SVG QR rendered here -->
               </div>
               <div style="font-size:0.9rem; font-weight:600; color:var(--color-primary);" id="promptpay-account-label">
-                พร้อมเพย์: 089-123-4567 (เพ็ทตี้ช็อป)
+                พร้อมเพย์
               </div>
               <div class="qr-warning-banner">
-                ⚠️ แสดง QR ไม่เท่ากับเงินเข้า — ให้เจ๊ตรวจยอดในแอปธนาคารก่อนกดยืนยัน
+                ⚠️ การแสดง QR ไม่ได้แปลว่าเงินเข้าแล้ว กรุณาตรวจยอดในแอปธนาคารก่อนกดยืนยัน
               </div>
             </div>
 
@@ -574,7 +589,7 @@
 
             <!-- Big Confirmation Action -->
             <button type="button" class="btn-confirm-payment" id="btn-confirm-payment-done">
-              <span>✅</span> เจ๊ยืนยันรับเงินแล้ว (จบการขาย)
+              <span>✅</span> ยืนยันรับเงินแล้ว (จบการขาย)
             </button>
           </div>
 
@@ -587,7 +602,7 @@
   <div class="modal-overlay" id="compare-modal">
     <div class="modal-container wide">
       <div class="modal-header">
-        <h3>⚖️ เปิดเทียบสินค้า 2 รายการ (ช่วยเจ๊แนะนำลูกค้า)</h3>
+        <h3>⚖️ เปิดเทียบสินค้า 2 รายการ (ช่วยแนะนำลูกค้า)</h3>
         <button type="button" class="btn-close-modal" id="btn-close-compare">✕</button>
       </div>
       <div class="modal-body">
@@ -683,7 +698,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">ชื่อเรียก / คำค้นหา (ภาษาที่เจ๊ใช้จริง คั่นด้วยเว้นวรรค)</label>
+            <label class="form-label">ชื่อเรียก / คำค้นหา (ชื่อที่ใช้เรียกในร้าน คั่นด้วยเว้นวรรค)</label>
             <input type="text" id="form-product-nicknames" class="form-input" placeholder="คานิว่า ไก่ทูน่า ถุงเขียว ไม่เค็ม">
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
@@ -706,7 +721,7 @@
             </div>
           </div>
           <div class="form-group">
-            <label class="form-label">ข้อมูลช่วยแนะนำสั้น ๆ (จุดต่างที่เจ๊ใช้พูดกับลูกค้า)</label>
+            <label class="form-label">ข้อมูลช่วยแนะนำสั้น ๆ (จุดเด่นสำหรับแนะนำลูกค้า)</label>
             <textarea id="form-product-cheatsheet" class="form-textarea" rows="2" placeholder="โซเดียมต่ำ ไม่เค็ม เม็ดขนาดพอดีคำ น้ำมันปลาแซลมอนบำรุงขน"></textarea>
           </div>
           <div class="form-group">
@@ -718,7 +733,7 @@
               <input type="checkbox" id="form-product-fav" style="width:18px; height:18px;"> ขายบ่อย 🔥
             </label>
             <label style="display:flex; align-items:center; gap:6px; font-weight:600; cursor:pointer;">
-              <input type="checkbox" id="form-product-rec" style="width:18px; height:18px;"> เจ๊แนะนำ ⭐
+              <input type="checkbox" id="form-product-rec" style="width:18px; height:18px;"> แนะนำ ⭐
             </label>
           </div>
         </form>

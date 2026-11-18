@@ -83,13 +83,14 @@ class PettyShopDB {
 
     // Default settings
     const defaultSettings = [
-      { key: "shopName", value: "PETTY SHOP (ร้านเพ็ทตี้ ช็อป)" },
-      { key: "shopPhone", value: "089-123-4567" },
-      { key: "promptPayId", value: "0891234567" },
-      { key: "promptPayName", value: "น.ส. สมศรี ใจดี (เพ็ทตี้ช็อป)" },
-      { key: "receiptFooter", value: "ขอบคุณที่อุดหนุนค่ะ สัตว์เลี้ยงสุขภาพดี เจ๊ยินดีบริการ!" },
+      { key: "shopName", value: "PETTY SHOP" },
+      { key: "shopPhone", value: "" },
+      { key: "promptPayId", value: "" },
+      { key: "promptPayName", value: "" },
+      { key: "receiptFooter", value: "ขอบคุณที่อุดหนุนค่ะ ยินดีให้บริการเสมอ" },
       { key: "soundEnabled", value: true },
-      { key: "taxId", value: "0105556012345" }
+      { key: "taxId", value: "" },
+      { key: "paperWidth", value: "58" }
     ];
 
     for (const s of defaultSettings) {
@@ -197,23 +198,50 @@ class PettyShopDB {
 
   // ---------------- Bills CRUD ----------------
 
+  // วันที่ตามเวลาท้องถิ่น (YYYY-MM-DD) ไม่ใช้ UTC
+  _localDate(d = new Date()) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  }
+
   async saveBill(bill) {
     await this.init();
-    if (!bill.id) {
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-      const rand = Math.floor(100 + Math.random() * 900);
-      bill.id = `PS-${dateStr}-${rand}`;
-    }
     if (!bill.createdAt) bill.createdAt = new Date().toISOString();
-    if (!bill.date) bill.date = bill.createdAt.slice(0, 10);
+    if (!bill.date) bill.date = this._localDate(new Date(bill.createdAt));
     if (!bill.status) bill.status = "COMPLETED"; // COMPLETED, CANCELLED, REFUNDED
 
     return new Promise((resolve, reject) => {
       const tx = this.db.transaction("bills", "readwrite");
       const store = tx.objectStore("bills");
-      const req = store.put(bill);
-      req.onsuccess = () => resolve(bill);
-      req.onerror = () => reject(req.error);
+      tx.oncomplete = () => resolve(bill);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+
+      const write = () => store.put(bill);
+
+      if (bill.id) {
+        write();
+        return;
+      }
+
+      // เลขบิลรันต่อเนื่องในแต่ละวัน: PS-YYYYMMDD-001, 002, ...
+      // อ่านและเขียนใน transaction เดียวกัน จึงไม่ซ้ำแม้กดเร็ว
+      const dateKey = bill.date.replace(/-/g, "");
+      const prefix = `PS-${dateKey}-`;
+      const req = store.index("date").getAll(bill.date);
+      req.onsuccess = () => {
+        let maxSeq = 0;
+        (req.result || []).forEach(b => {
+          if (typeof b.id === "string" && b.id.startsWith(prefix)) {
+            const n = parseInt(b.id.slice(prefix.length), 10);
+            if (!Number.isNaN(n) && n > maxSeq) maxSeq = n;
+          }
+        });
+        bill.id = prefix + String(maxSeq + 1).padStart(3, "0");
+        write();
+      };
     });
   }
 
